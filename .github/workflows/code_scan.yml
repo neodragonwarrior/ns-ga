@@ -35,17 +35,28 @@ jobs:
 
       - name: Comment and Block Pull Request (if critical found)
         run: |
-         curl -X POST \
-           -H "Authorization: token ***" \
-           -d "{\"body\": \"Critical or High vulnerabilities found. Pull request blocked.\"}" \
-           "https://api.github.com/repos/${{ github.repository_owner }}/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments"
-        if: failure()
+          comment="Block"
+          headers = {
+          'Authorization': 'Bearer ${{ secrets.GITHUB_TOKEN }}',
+          'Accept': 'application/vnd.github.v3+json'
+          }
+          data = {
+          'body': comment
+          }
+          response = requests.post('https://api.github.com/repos/${{ steps.repo_info.outputs.user }}/${{ steps.repo_info.outputs.repo }}/issues/${{ github.event.issue.number }}/comments', headers=headers, json=data)
+          print(response.text)
+          if: failure()
 
       - name: Comment and Auto-Merge Pull Request (if successful)
         run: |
-          curl -X POST \
-            -H "Authorization: token ***" \
-            -d "{\"body\": \"Critical or High vulnerabilities found. Pull request blocked.\"}" \
-            "https://api.github.com/repos/${{ github.repository_owner }}/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments"
-
-        if: success()
+          comment="Successful"
+          headers = {
+          'Authorization': 'Bearer ${{ secrets.GITHUB_TOKEN }}',
+          'Accept': 'application/vnd.github.v3+json'
+          }
+          data = {
+          'body': comment
+          }
+          response = requests.post('https://api.github.com/repos/${{ steps.repo_info.outputs.user }}/${{ steps.repo_info.outputs.repo }}/issues/${{ github.event.issue.number }}/comments', headers=headers, json=data)
+          print(response.text)
+          if: success()
