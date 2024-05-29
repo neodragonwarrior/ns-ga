@@ -40,30 +40,20 @@ jobs:
             echo "No critical or high vulnerabilities found. Commit allowed."
           fi
 
-      - name: Comment on Pull Request
+      - name: Comment on Pull Request (if failure)
         if: failure()
         run: |
           comment="Critical or High vulnerabilities found. Pull request blocked. See Bandit output for details."
-          headers = {
-              'Authorization': 'Bearer ${{ secrets.GITHUB_TOKEN }}',
-              'Accept': 'application/vnd.github.v3+json'
-          }
-          data = {
-              'body': comment
-          }
-          response = requests.post('https://api.github.com/repos/${{ github.repository_owner }}/${{ github.repository_name }}/issues/${{ github.event.issue.number }}/comments', headers=headers, json=data)
-          print(response.text)
+          headers='{"Authorization": "Bearer ${{ secrets.GITHUB_TOKEN }}", "Accept": "application/vnd.github.v3+json"}'
+          data='{"body": "'"$comment"'"}'
+          response=$(curl -X POST -H "Content-Type: application/json" -d "$data" "https://api.github.com/repos/${{ github.repository_owner }}/${{ github.repository_name }}/issues/${{ github.event.issue.number }}/comments" -H "$headers")
+          echo $response
 
-      - name: Comment and Auto-Merge Pull Request
+      - name: Comment and Auto-Merge Pull Request (if success)
         if: success()
         run: |
-          comment="No critical vulnerabilities found. Pull request merged."
-          headers = {
-              'Authorization': 'Bearer ${{ secrets.GITHUB_TOKEN }}',
-              'Accept': 'application/vnd.github.v3+json'
-          }
-          data = {
-              'body': comment
-          }
-          response = requests.post('https://api.github.com/repos/${{ github.repository_owner }}/${{ github.repository_name }}/issues/${{ github.event.issue.number }}/comments', headers=headers, json=data)
-          print(response.text)
+         comment="No critical vulnerabilities found. Pull request merged."
+         headers='{"Authorization": "Bearer ${{ secrets.GITHUB_TOKEN }}", "Accept": "application/vnd.github.v3+json"}'
+         data='{"body": "'"$comment"'"}'
+         response=$(curl -X POST -H "Content-Type: application/json" -d "$data" "https://api.github.com/repos/${{ github.repository_owner }}/${{ github.repository_name }}/issues/${{ github.event.issue.number }}/comments" -H "$headers")
+         echo $response
