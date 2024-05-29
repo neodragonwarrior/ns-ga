@@ -19,7 +19,7 @@ jobs:
 
       - name: Run Bandit
         run: |
-          bandit -r . -f json -o bandit_output.txt || true
+          bandit -r . -f json -o bandit_output.json || true
           cat bandit_output.json  # Display Bandit output
 
       - name: Parse Bandit output and check for vulnerabilities
