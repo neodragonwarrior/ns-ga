@@ -5,41 +5,47 @@ on:
     types: [opened, synchronize]
 
 jobs:
-  bandit-scan:
+  security-scan:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.x'
+      - name: Install dependencies
+        run: pip install bandit
 
-    - name: Install Bandit and jq
-      run: |
-        python -m pip install --upgrade pip
-        pip install bandit jq
+      - name: Run Bandit
+        run: |
+          bandit -r . -f json -o bandit_output.txt || true
+          cat bandit_output.txt  # Display Bandit output
+          
+      - name: Check for critical vulnerabilities
+        run: |
+          grep -E "Critical|High" bandit_output.txt
+          if [ $? -eq 0 ]; then
+            echo "Critical or High vulnerability found! Blocking pull request."
+            exit 1
+          fi
 
-    - name: Run Bandit
-      id: bandit
-      run: |
-        bandit -r . -f json -o bandit_output.json || true
+      - name: Get repository information
+        id: repo_info
+        run: |
+          echo "::set-output name=user::${{ github.repository_owner }}"
+          echo "::set-output name=repo::${{ github.repository_name }}"
 
-    - name: Check Bandit output
-      run: |
-        severity=$(jq -r '.results[] | select(.issue_severity == "CRITICAL" or .issue_severity == "HIGH").issue_severity' bandit_output.json)
-        if [ -n "$severity" ]; then
-          echo "Critical or above vulnerabilities found by Bandit."
-          curl -X POST -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -d "{\"body\": \"Block\"}" "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments"
-          exit 1
-        else
-          echo "No critical or above vulnerabilities found by Bandit."
-          curl -X POST -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -d "{\"body\": \"Successful\"}" "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments"
-        fi
+      - name: Comment and Block Pull Request (if critical found)
+        run: |
+         curl -X POST \
+           -H "Authorization: token ***" \
+           -d "{\"body\": \"Critical or High vulnerabilities found. Pull request blocked.\"}" \
+           "https://api.github.com/repos/${{ github.repository_owner }}/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments"
+        if: failure()
 
-    - name: Merge Pull Request
-      if: github.event_name == 'pull_request' && github.event.action == 'opened' && steps.bandit.outputs.severity == ''
-      run: |
-        curl -X PUT -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -d "{\"merge_method\": \"squash\"}" "https://api.github.com/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/merge"
+      - name: Comment and Auto-Merge Pull Request (if successful)
+        run: |
+          curl -X POST \
+            -H "Authorization: token ***" \
+            -d "{\"body\": \"Critical or High vulnerabilities found. Pull request blocked.\"}" \
+            "https://api.github.com/repos/${{ github.repository_owner }}/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments"
+
+        if: success()
