@@ -35,12 +35,16 @@ jobs:
               echo "::set-output name=status::success"
           fi
 
-      - name: Comment on PR
-        if: always()  # Always run this step
-        uses: thollander/actions-comment-pull-request@v2
-        with:
-          message: ${{ steps.parse_output.outputs.status == 'fail' && 'Block' || 'Successful' }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Add Comment to PR
+        run: |
+          if [[ "${{ steps.parse_output.outputs.status }}" == "fail" ]]; then
+            comment="Block"
+          else
+            comment="Successful"
+          fi
+          curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+               -X POST -d "{\"body\":\"$comment\"}" \
+               "https://api.github.com/repos/${{ github.repository_owner }}/${{ github.event.repository.name }}/issues/${{ github.event.number }}/comments"
 
       - name: Block Commit on Failure
         if: steps.parse_output.outputs.status == 'fail'
