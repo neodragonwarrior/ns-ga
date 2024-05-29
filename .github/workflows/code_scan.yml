@@ -21,11 +21,20 @@ jobs:
           
       - name: Check for critical vulnerabilities
         run: |
-          grep -E "Critical|High" bandit_output.txt
-          if [ $? -eq 0 ]; then
-            echo "Critical or High vulnerability found! Blocking pull request."
-            exit 1
-          fi
+          # Parse Bandit output JSON
+          import json
+
+          with open('bandit_output.json') as f:
+          bandit_output = json.load(f)
+
+          # Iterate over all files and check vulnerability counts
+          for file_path, metrics in bandit_output['metrics'].items():
+          critical_count = metrics['SEVERITY.HIGH']
+          high_count = metrics['SEVERITY.MEDIUM']
+
+          if critical_count > 0 or high_count > 0:
+            echo "Critical or High vulnerability found in file: $file_path"
+          exit 1
 
       - name: Get repository information
         id: repo_info
