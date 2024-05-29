@@ -1,18 +1,22 @@
-name: Bandit Security Scan
+name: Bandit Code Scan
 
 on:
   pull_request:
-    branches:
-      - main
+    types: [opened, synchronize]
 
 jobs:
-  bandit_scan:
+  process_bandit_output:
     runs-on: ubuntu-latest
-    name: Run Bandit Security Scan
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v2
 
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+          pip install bandit
+          
       - name: Run Bandit
         run: |
           bandit -r . -f json -o bandit_output.json || true
