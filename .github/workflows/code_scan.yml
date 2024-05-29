@@ -1,38 +1,47 @@
-name: Bandit Code Scan
+name: Bandit Security Scan
 
 on:
   pull_request:
-    types: [opened, synchronize]
+    branches:
+      - main
 
 jobs:
-  process_bandit_output:
+  bandit_scan:
     runs-on: ubuntu-latest
+    name: Run Bandit Security Scan
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y jq
-          pip install bandit
+      - name: Checkout
+        uses: actions/checkout@v3
 
       - name: Run Bandit
         run: |
           bandit -r . -f json -o bandit_output.json || true
-          cat bandit_output.json  # Display Bandit output
 
-      - name: Parse Bandit output JSON
+      - name: Parse Bandit Output
+        id: parse_output
         run: |
           # Parse Bandit output JSON
           bandit_output=$(<bandit_output.json)
           # Extract counts of HIGH and MEDIUM vulnerabilities using jq
-          high_count=$(echo "$bandit_output" | jq '[.results[] | select(.issue_severity == "HIGH")] | length')
-          medium_count=$(echo "$bandit_output" | jq '[.results[] | select(.issue_severity == "MEDIUM")] | length')
+          high_count=$(echo "$bandit_output" | jq '[.metrics[] | .["SEVERITY"]["HIGH"] // 0] | add')
+          medium_count=$(echo "$bandit_output" | jq '[.metrics[] | .["SEVERITY"]["MEDIUM"] // 0] | add')
+
           # Check if HIGH or MEDIUM count is greater than 0
-          if [ "$high_count" -gt 0 ] || [ "$medium_count" -gt 0 ]; then
+          if (( high_count > 0 )) || (( medium_count > 0 )); then
               echo "Critical or High vulnerability found! Blocking commit."
-              exit 1
+              echo "::set-output name=status::fail"
           else
               echo "No critical or high vulnerabilities found. Commit allowed."
+              echo "::set-output name=status::success"
           fi
+
+      - name: Comment on PR
+        if: always()  # Always run this step
+        uses: thollander/actions-comment-pull-request@v2
+        with:
+          message: ${{ steps.parse_output.outputs.status == 'fail' && 'Block' || 'Successful' }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Block Commit on Failure
+        if: steps.parse_output.outputs.status == 'fail'
+        run: exit 1
