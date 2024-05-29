@@ -27,17 +27,20 @@ jobs:
           # Parse Bandit output JSON
           bandit_output=$(<bandit_output.json)
 
+          # Parse Bandit output JSON
+          bandit_output=$(<bandit_output.json)
+
           # Initialize variables for counts
           high_count=0
           medium_count=0
 
           # Extract counts of HIGH and MEDIUM vulnerabilities
           while IFS= read -r line; do
-            if [[ $line == *"SEVERITY.HIGH"* ]]; then
-              high_count=$(echo "$line" | jq -r '.SEVERITY.HIGH')
+          if [[ $line == *"SEVERITY.HIGH"* ]]; then
+            high_count=$(echo "$line" | jq -r '.["SEVERITY.HIGH"]')
             elif [[ $line == *"SEVERITY.MEDIUM"* ]]; then
-              medium_count=$(echo "$line" | jq -r '.SEVERITY.MEDIUM')
-            fi
+            medium_count=$(echo "$line" | jq -r '.["SEVERITY.MEDIUM"]')
+          fi
           done <<< "$(echo "$bandit_output" | jq -r '.metrics | to_entries[] | .value')"
 
           # Check if HIGH or MEDIUM count is greater than 0
