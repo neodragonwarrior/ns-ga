@@ -6,7 +6,8 @@ importlib.reload(requests)
 def fetch_code_scanning_alerts(repo_owner, repo_name, github_token):
     headers = {
         'Authorization': f'Bearer {github_token}',
-        'Accept': 'application/vnd.github.v3+json'
+        'Accept': 'application/vnd.github.v3+json',
+        'X-Github-Api-Version': '2022-11-28'
     }
     url = f'https://api.github.com/repos/{repo_owner}/{repo_name}/code-scanning/alerts'
     response = requests.get(url, headers=headers)
@@ -41,8 +42,8 @@ def print_vulnerabilities_with_details(alerts):
 
 # Replace these values with your repository details and GitHub token
 repo_owner = 'neodragonwarrior'
-repo_name = 'GA_NS'
-github_token = 'ghp_XXXc'
+repo_name = 'ns-ga'
+github_token = 'ghp_Nxxxxc'
 
 # Fetch code scanning alerts
 alerts = fetch_code_scanning_alerts(repo_owner, repo_name, github_token)
@@ -51,4 +52,3 @@ if alerts:
     print_vulnerabilities_with_details(alerts)
 else:
     print("Failed to fetch code scanning alerts.")
-
