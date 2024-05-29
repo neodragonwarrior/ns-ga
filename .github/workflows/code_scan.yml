@@ -33,7 +33,7 @@ jobs:
           # Check if HIGH or MEDIUM count is greater than 0
           if (( high_count > 0 )) || (( medium_count > 0 )); then
               echo "Critical or High vulnerability found! Blocking commit."
-          exit 1
+              exit 1
           else
               echo "No critical or high vulnerabilities found. Commit allowed."
           fi
