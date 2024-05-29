@@ -14,6 +14,14 @@ jobs:
       - name: Install jq
         run: sudo apt-get install jq -y
 
+      - name: Install dependencies
+        run: pip install bandit
+
+      - name: Run Bandit
+        run: |
+          bandit -r . -f json -o bandit_output.txt || true
+          cat bandit_output.json  # Display Bandit output
+
       - name: Parse Bandit output and check for vulnerabilities
         run: |
           # Parse Bandit output JSON
