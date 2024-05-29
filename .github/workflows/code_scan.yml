@@ -5,69 +5,65 @@ on:
     types: [opened, synchronize]
 
 jobs:
-  security-scan:
+  process_bandit_output:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Install dependencies
-        run: pip install bandit
+      - name: Install jq
+        run: sudo apt-get install jq -y
 
-      - name: Run Bandit
+      - name: Parse Bandit output and check for vulnerabilities
         run: |
-          bandit -r . -f json -o bandit_output.json || true
-          cat bandit_output.json  # Display Bandit output
-          
-      - name: Check for critical vulnerabilities
-        run: |
-          #!/bin/bash
           # Parse Bandit output JSON
-          bandit_output=$(<bandit_output.json) 
-          # Iterate over all files and check vulnerability counts
+          bandit_output=$(<bandit_output.json)
+
+          # Initialize variables for counts
+          high_count=0
+          medium_count=0
+
+          # Extract counts of HIGH and MEDIUM vulnerabilities
           while IFS= read -r line; do
             if [[ $line == *"SEVERITY.HIGH"* ]]; then
-              file_path=$(echo "$line" | jq -r 'keys[]')
-              critical_count=$(echo "$line" | jq -r '.SEVERITY.HIGH')
-              high_count=$(echo "$line" | jq -r '.SEVERITY.MEDIUM')
-            if (( critical_count > 0 )) || (( high_count > 0 )); then
-                echo "Critical or High vulnerability found in file: $file_path"
-                exit 1
-            fi
+              high_count=$(echo "$line" | jq -r '.SEVERITY.HIGH')
+            elif [[ $line == *"SEVERITY.MEDIUM"* ]]; then
+              medium_count=$(echo "$line" | jq -r '.SEVERITY.MEDIUM')
             fi
           done <<< "$(echo "$bandit_output" | jq -r '.metrics | to_entries[] | .value')"
-          exit 0
-          
-      - name: Get repository information
-        id: repo_info
-        run: |
-          echo "::set-output name=user::${{ github.repository_owner }}"
-          echo "::set-output name=repo::${{ github.repository_name }}"
 
-      - name: Comment and Block Pull Request (if critical found)
+          # Check if HIGH or MEDIUM count is greater than 0
+          if (( high_count > 0 )) || (( medium_count > 0 )); then
+            echo "Critical or High vulnerability found! Blocking commit."
+            exit 1
+          else
+            echo "No critical or high vulnerabilities found. Commit allowed."
+          fi
+
+      - name: Comment on Pull Request
+        if: failure()
         run: |
-          comment="Block"
+          comment="Critical or High vulnerabilities found. Pull request blocked. See Bandit output for details."
           headers = {
-          'Authorization': 'Bearer ${{ secrets.GITHUB_TOKEN }}',
-          'Accept': 'application/vnd.github.v3+json'
+              'Authorization': 'Bearer ${{ secrets.GITHUB_TOKEN }}',
+              'Accept': 'application/vnd.github.v3+json'
           }
           data = {
-          'body': comment
+              'body': comment
           }
-          response = requests.post('https://api.github.com/repos/${{ steps.repo_info.outputs.user }}/${{ steps.repo_info.outputs.repo }}/issues/${{ github.event.issue.number }}/comments', headers=headers, json=data)
+          response = requests.post('https://api.github.com/repos/${{ github.repository_owner }}/${{ github.repository_name }}/issues/${{ github.event.issue.number }}/comments', headers=headers, json=data)
           print(response.text)
-          if: failure()
 
-      - name: Comment and Auto-Merge Pull Request (if successful)
+      - name: Comment and Auto-Merge Pull Request
+        if: success()
         run: |
-          comment="Successful"
+          comment="No critical vulnerabilities found. Pull request merged."
           headers = {
-          'Authorization': 'Bearer ${{ secrets.GITHUB_TOKEN }}',
-          'Accept': 'application/vnd.github.v3+json'
+              'Authorization': 'Bearer ${{ secrets.GITHUB_TOKEN }}',
+              'Accept': 'application/vnd.github.v3+json'
           }
           data = {
-          'body': comment
+              'body': comment
           }
-          response = requests.post('https://api.github.com/repos/${{ steps.repo_info.outputs.user }}/${{ steps.repo_info.outputs.repo }}/issues/${{ github.event.issue.number }}/comments', headers=headers, json=data)
+          response = requests.post('https://api.github.com/repos/${{ github.repository_owner }}/${{ github.repository_name }}/issues/${{ github.event.issue.number }}/comments', headers=headers, json=data)
           print(response.text)
-          if: success()
