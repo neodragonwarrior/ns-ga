@@ -22,29 +22,26 @@ jobs:
           bandit -r . -f json -o bandit_output.json || true
           cat bandit_output.json  # Display Bandit output
 
-      - name: Parse Bandit output and check for vulnerabilities
+          # Parse Bandit output JSON
+      - name: Parse Bandit output JSON
         run: |
-         # Parse Bandit output JSON
-         bandit_output=$(<bandit_output.json)
-         # Initialize variables for counts
+          # Parse Bandit output JSON
+          bandit_output=$(<bandit_output.json)
+          # Initialize variables for counts
           high_count=0
           medium_count=0
-
           # Extract counts of HIGH and MEDIUM vulnerabilities
           while IFS= read -r line; do
-            if [[ $line == *'"SEVERITY":{"HIGH"'* ]]; then
-              high_count=$((high_count + $(echo "$line" | jq -r '.SEVERITY.HIGH')))
-            elif [[ $line == *'"SEVERITY":{"MEDIUM"'* ]]; then
-               medium_count=$((medium_count + $(echo "$line" | jq -r '.SEVERITY.MEDIUM')))
-            fi
-          done <<< "$(echo "$bandit_output" | jq -r '.metrics | to_entries[] | .value')"
-
+              if [[ $line == *'"SEVERITY.HIGH":'* ]]; then
+                high_count=$((high_count + $(echo "$line" | jq -r '.["SEVERITY.HIGH"]')))
+              elif [[ $line == *'"SEVERITY.MEDIUM":'* ]]; then
+                 medium_count=$((medium_count + $(echo "$line" | jq -r '.["SEVERITY.MEDIUM"]')))
+              fi
+            done <<< "$(echo "$bandit_output" | jq -r '.metrics | to_entries[] | .value')"
           # Check if HIGH or MEDIUM count is greater than 0
           if (( high_count > 0 )) || (( medium_count > 0 )); then
-             echo "Critical or High vulnerability found! Blocking commit."
+            echo "Critical or High vulnerability found! Blocking commit."
           exit 1
           else
             echo "No critical or high vulnerabilities found. Commit allowed."
           fi
-
-   
